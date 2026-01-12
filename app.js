@@ -98,24 +98,30 @@ class VoiceTranslationApp {
       };
       
       this.ws.onmessage = (event) => {
-        // Проверяем тип полученных данных (текст или бинарные)
+        // Check if the received data is text (JSON) or binary (audio/data)
         if (typeof event.data === 'string') {
-          // Это JSON строка сообщением
-          const data = JSON.parse(event.data);
-          
-          console.log('WS MESSAGE', data);
-          this.log('WS MESSAGE');
-          
-          // Обработка pong для измерения latency
-          if (data.type === 'pong') {
-            const latency = Date.now() - data.timestamp;
-            this.latencyValue.textContent = `${latency} ms`;
-            return;
+          try {
+            const message = JSON.parse(event.data);
+            
+            console.log('WS MESSAGE', message);
+            this.log(`WS MESSAGE: ${JSON.stringify(message)}`);
+            
+            // Handle pong for latency measurement
+            if (message.type === 'pong') {
+              const latency = Date.now() - message.timestamp;
+              this.latencyValue.textContent = `${latency} ms`;
+              return;
+            }
+            
+            // Process other message types
+            this.handleMessage(message);
+          } catch (error) {
+            console.error("Invalid JSON received:", error.message);
+            this.log(`ERROR: Invalid JSON received - ${error.message}`);
           }
-          
-          this.handleMessage(data);
         } else {
-          // Это бинарные аудио данные для воспроизведения
+          // This is binary data (audio or other) for processing
+          console.log('Received binary data from WebSocket');
           this.playReceivedAudio(event.data);
         }
       };
@@ -151,7 +157,7 @@ class VoiceTranslationApp {
       this.ws.close(1000, "User disconnected");
     }
     
-    // Сброс состояния
+    // Reset state
     this.isConnected = false;
     this.isInCall = false;
     this.isInRoom = false;
@@ -268,32 +274,38 @@ class VoiceTranslationApp {
   }
   
   async startCall() {
-    if (!this.isConnected) {
-      alert('Сначала подключитесь к серверу');
+    if (!this.isConnected || !this.hasPartner) {
+      alert('You must be connected and have a partner in the room to start a call');
       return;
     }
     
     try {
+      // Create peer connection
       this.createPeerConnection();
       
-      // Создаем предложение
-      const offer = await this.peerConnection.createOffer();
+      // Create offer with proper constraints
+      const offer = await this.peerConnection.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: false
+      });
+      
       await this.peerConnection.setLocalDescription(offer);
       
-      // Отправляем предложение на сервер
+      // Send offer to server with proper format
       this.sendToServer({
         type: 'offer',
-        offer: offer
+        sdp: offer.sdp,
+        sessionId: this.sessionId
       });
       
       this.isInCall = true;
       
-      // Начинаем отправку аудио
+      // Start sending audio
       this.startSendingAudio();
       
       this.updateUI();
     } catch (error) {
-      console.error('Ошибка при начале звонка:', error);
+      console.error('Error starting call:', error);
     }
   }
   
@@ -337,29 +349,29 @@ class VoiceTranslationApp {
   handleMessage(data) {
     switch (data.type) {
       case 'partner_found':
-        console.log(`Найден собеседник: ${data.partnerId} в комнате ${data.roomId}`);
+        console.log(`Partner found: ${data.partnerId} in room ${data.roomId}`);
         this.hasPartner = true;
         this.isInRoom = true;
         this.updateUI();
         break;
         
       case 'waiting_for_partner':
-        console.log(`Ожидание партнера в комнате ${data.roomId}...`);
+        console.log(`Waiting for partner in room ${data.roomId}...`);
         this.isInRoom = true;
         this.hasPartner = false;
         this.updateUI();
         break;
         
       case 'offer':
-        this.handleOffer(data.offer);
+        this.handleOffer(data);
         break;
         
       case 'answer':
-        this.handleAnswer(data.answer);
+        this.handleAnswer(data);
         break;
         
       case 'ice_candidate':
-        this.handleIceCandidate(data.candidate);
+        this.handleIceCandidate(data);
         break;
         
       case 'call_started':
@@ -368,7 +380,7 @@ class VoiceTranslationApp {
         break;
         
       case 'partner_disconnected':
-        console.log(`Партнер ${data.partnerId} отключился от комнаты ${data.roomId}`);
+        console.log(`Partner ${data.partnerId} disconnected from room ${data.roomId}`);
         this.hasPartner = false;
         this.isInRoom = false;
         this.isInCall = false;
@@ -376,12 +388,12 @@ class VoiceTranslationApp {
         break;
         
       case 'warning':
-        console.warn('Предупреждение:', data.message);
+        console.warn('Warning:', data.message);
         this.log(`WARNING: ${data.message}`);
         break;
         
       default:
-        console.log('Получено неизвестное сообщение:', data);
+        console.log('Received unknown message:', data);
         break;
     }
   }
