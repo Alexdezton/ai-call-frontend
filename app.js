@@ -1,6 +1,6 @@
-// Генерация случайного ID сессии для пользователя
+// Генерация 4-значного числового ID сессии для пользователя
 function generateSessionId() {
-  return 'session_' + Math.random().toString(36).substr(2, 9);
+  return Math.floor(1000 + Math.random() * 9000).toString();
 }
 
 class VoiceTranslationApp {
@@ -17,6 +17,7 @@ class VoiceTranslationApp {
     this.audioProcessor = null;
     this.microphone = null;
     this.mediaRecorder = null;
+    this.latencyInterval = null;
     
     // STUN сервер для WebRTC
     this.iceServers = [
@@ -63,7 +64,7 @@ class VoiceTranslationApp {
       this.ws = new WebSocket('wss://ai-call-backend-esj7.onrender.com');
       
       this.ws.onopen = () => {
-        console.log('Соединение с сервером установлено');
+        this.log('WS OPEN');
         this.isConnected = true;
         this.connectionStatusText.textContent = 'Connected';
         this.updateUI();
@@ -75,13 +76,25 @@ class VoiceTranslationApp {
           myLanguage: document.getElementById('myLanguage').value,
           partnerLanguage: document.getElementById('partnerLanguage').value
         });
+        
+        // Запускаем измерение latency
+        this.startLatencyMeasurement();
       };
       
       this.ws.onmessage = (event) => {
+        this.log('WS MESSAGE');
         // Проверяем тип полученных данных (текст или бинарные)
         if (typeof event.data === 'string') {
           // Это JSON строка сообщением
           const data = JSON.parse(event.data);
+          
+          // Обработка pong для измерения latency
+          if (data.type === 'pong') {
+            const latency = Date.now() - data.timestamp;
+            this.latencyValue.textContent = `${latency} ms`;
+            return;
+          }
+          
           this.handleMessage(data);
         } else {
           // Это бинарные аудио данные для воспроизведения
@@ -89,12 +102,15 @@ class VoiceTranslationApp {
         }
       };
       
-      this.ws.onclose = () => {
-        console.log('Соединение с сервером закрыто');
+      this.ws.onclose = (event) => {
+        this.log(`WS CLOSE: code=${event.code} reason=${event.reason}`);
         this.isConnected = false;
         this.isInCall = false;
         this.connectionStatusText.textContent = 'Disconnected';
         this.updateUI();
+        
+        // Останавливаем измерение latency
+        this.stopLatencyMeasurement();
       };
       
       this.ws.onerror = (error) => {
@@ -416,6 +432,45 @@ class VoiceTranslationApp {
     if (connectionStatus) {
       connectionStatus.classList.remove('active', 'inactive');
       connectionStatus.classList.add(this.isConnected ? 'active' : 'inactive');
+    }
+  }
+  
+  // Функция для вывода логов
+  log(message) {
+    const logElement = document.getElementById('logOutput');
+    if (logElement) {
+      const timestamp = new Date().toLocaleTimeString();
+      const logEntry = document.createElement('p');
+      logEntry.textContent = `[${timestamp}] ${message}`;
+      logElement.appendChild(logEntry);
+      
+      // Прокручиваем вниз, чтобы видеть последние логи
+      logElement.scrollTop = logElement.scrollHeight;
+    }
+    console.log(`[${new Date().toLocaleTimeString()}]`, message);
+  }
+  
+  // Запуск измерения latency
+  startLatencyMeasurement() {
+    // Останавливаем предыдущий интервал, если он был
+    this.stopLatencyMeasurement();
+    
+    // Запускаем новый интервал для измерения latency
+    this.latencyInterval = setInterval(() => {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        this.sendToServer({
+          type: 'ping',
+          timestamp: Date.now()
+        });
+      }
+    }, 1000);
+  }
+  
+  // Остановка измерения latency
+  stopLatencyMeasurement() {
+    if (this.latencyInterval) {
+      clearInterval(this.latencyInterval);
+      this.latencyInterval = null;
     }
   }
 }
