@@ -423,6 +423,16 @@ class VoiceTranslationApp {
 // Инициализация приложения после загрузки DOM
 document.addEventListener('DOMContentLoaded', () => {
   window.app = new VoiceTranslationApp();
+  
+ // Добавляем тестовое подключение
+  const testBtn = document.getElementById('connectTestBtn');
+  if (testBtn) {
+    testBtn.addEventListener('click', () => {
+      const testWs = new WebSocket('wss://ai-call-backend-esj7.onrender.com');
+      testWs.onopen = () => console.log('Connection OK');
+      testWs.onerror = (err) => console.error('Connection Failed', err);
+    });
+  }
 });
 
 // Функция для копирования ID пользователя
