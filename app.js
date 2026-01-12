@@ -1,6 +1,6 @@
-// Генерация простого числового ID сессии для пользователя
+// Генерация простого ID сессии для пользователя (user1, user2 и т.д.)
 function generateSessionId() {
-  return `user${Math.floor(1 + Math.random() * 10000)}`;
+  return `user${Math.floor(1 + Math.random() * 10)}`;
 }
 
 class VoiceTranslationApp {
