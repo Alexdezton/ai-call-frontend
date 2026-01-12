@@ -197,7 +197,7 @@
             
             <div class="controls">
                 <button id="connectBtn" class="btn-connect">Connect to Room</button>
-                <button id="connectTestBtn" class="btn-connect">Connect Test</button>
+                <button id="disconnectBtn" class="btn-connect">Disconnect</button>
             </div>
             
             <div class="status-indicators">
@@ -239,24 +239,20 @@
     <script>
         // Initialize user ID field with a suggestion
         document.addEventListener('DOMContentLoaded', function() {
-            const suggestedUserId = `user${Math.floor(1 + Math.random() * 10)}`;
-            document.getElementById('userInputId').placeholder = `e.g. ${suggestedUserId}`;
-            
-            // Set a default room ID suggestion
             const suggestedRoomId = `room${Math.floor(1 + Math.random() * 100)}`;
             document.getElementById('roomInputId').placeholder = `e.g. ${suggestedRoomId}`;
         });
 
         // Copy user ID to clipboard
         function copyUserId() {
-            const userId = document.getElementById('userInputId').value || document.getElementById('userInputId').placeholder.replace('e.g. ', '');
+            const userId = document.getElementById('userIdDisplay').textContent;
             navigator.clipboard.writeText(userId).then(function() {
                 alert('User ID copied to clipboard!');
             }).catch(function(err) {
                 console.error('Could not copy text: ', err);
             });
         }
-
+        
         /*
         // Регистрация service worker
         if ('serviceWorker' in navigator) {
@@ -271,6 +267,9 @@
             });
         }
         */
+        
+        // Remove Connect Test functionality
+        // The connectTestBtn was removed from HTML, so no need for its event listener
     </script>
     
     <!-- Service Worker registration commented out to prevent interference with testing -->

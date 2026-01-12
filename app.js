@@ -36,6 +36,7 @@ class VoiceTranslationApp {
   
   initializeElements() {
     this.connectBtn = document.getElementById('connectBtn');
+    this.disconnectBtn = document.getElementById('disconnectBtn');
     this.startCallBtn = document.getElementById('startCallBtn');
     this.stopCallBtn = document.getElementById('stopCallBtn');
     this.micStatusText = document.getElementById('micStatusText');
@@ -51,10 +52,14 @@ class VoiceTranslationApp {
     if (this.userIdDisplay) {
       this.userIdDisplay.textContent = this.userId;
     }
+    
+    // Добавляем обработчики событий
+    this.setupEventListeners();
   }
   
   setupEventListeners() {
     this.connectBtn.addEventListener('click', () => this.connectToServer());
+    this.disconnectBtn.addEventListener('click', () => this.disconnectFromServer());
     this.startCallBtn.addEventListener('click', () => this.startCall());
     this.stopCallBtn.addEventListener('click', () => this.stopCall());
   }
@@ -139,6 +144,20 @@ class VoiceTranslationApp {
       this.connectionStatusText.textContent = 'Connection Error';
       this.updateUI();
     }
+  }
+  
+  disconnectFromServer() {
+    if (this.ws) {
+      this.ws.close(1000, "User disconnected");
+    }
+    
+    // Сброс состояния
+    this.isConnected = false;
+    this.isInCall = false;
+    this.isInRoom = false;
+    this.hasPartner = false;
+    this.connectionStatusText.textContent = 'Disconnected';
+    this.updateUI();
   }
   
   async initAudio() {
@@ -454,6 +473,7 @@ class VoiceTranslationApp {
   updateUI() {
     // Обновляем состояние кнопок
     this.connectBtn.disabled = this.isConnected && this.isInCall;
+    this.disconnectBtn.disabled = !this.isConnected;
     this.startCallBtn.disabled = !this.isConnected || this.isInCall || !this.hasPartner;
     this.stopCallBtn.disabled = !this.isInCall;
     
