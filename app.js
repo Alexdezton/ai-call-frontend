@@ -5,7 +5,6 @@ function generateSessionId() {
 
 class VoiceTranslationApp {
   constructor() {
-    this.userId = '';
     this.roomId = '';
     this.localStream = null;
     this.remoteStream = null;
@@ -27,6 +26,9 @@ class VoiceTranslationApp {
       { urls: 'stun:stun.l.google.com:19302' }
     ];
     
+    // Генерируем случайный User ID при создании экземпляра
+    this.userId = `user${Math.floor(1 + Math.random() * 1000)}`;
+    
     this.initializeElements();
     this.setupEventListeners();
     this.updateUI();
@@ -41,10 +43,14 @@ class VoiceTranslationApp {
     this.roomStatusText = document.getElementById('roomStatusText');
     this.latencyValue = document.getElementById('latencyValue');
     this.userIdDisplay = document.getElementById('userIdDisplay');
-    this.userInputId = document.getElementById('userInputId');
     this.roomInputId = document.getElementById('roomInputId');
     this.localAudio = document.getElementById('localAudio');
     this.remoteAudio = document.getElementById('remoteAudio');
+    
+    // Устанавливаем сгенерированный User ID в отображение
+    if (this.userIdDisplay) {
+      this.userIdDisplay.textContent = this.userId;
+    }
   }
   
   setupEventListeners() {
@@ -55,14 +61,8 @@ class VoiceTranslationApp {
   
   async connectToServer() {
     try {
-      // Получаем User ID и Room ID из полей ввода
-      this.userId = this.userInputId.value.trim();
+      // Получаем Room ID из поля ввода
       this.roomId = this.roomInputId.value.trim();
-      
-      if (!this.userId) {
-        alert('Please enter your User ID');
-        return;
-      }
       
       if (!this.roomId) {
         alert('Please enter Room ID');
