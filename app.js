@@ -12,6 +12,8 @@ class VoiceTranslationApp {
     this.ws = null;
     this.isConnected = false;
     this.isInCall = false;
+    this.isInRoom = false;
+    this.hasPartner = false;
     this.isMicEnabled = true;
     this.audioContext = null;
     this.audioProcessor = null;
@@ -35,6 +37,7 @@ class VoiceTranslationApp {
     this.stopCallBtn = document.getElementById('stopCallBtn');
     this.micStatusText = document.getElementById('micStatusText');
     this.connectionStatusText = document.getElementById('connectionStatusText');
+    this.roomStatusText = document.getElementById('roomStatusText');
     this.latencyValue = document.getElementById('latencyValue');
     this.userIdDisplay = document.getElementById('userIdDisplay');
     this.localAudio = document.getElementById('localAudio');
@@ -307,6 +310,16 @@ class VoiceTranslationApp {
     switch (data.type) {
       case 'partner_found':
         console.log('Найден собеседник');
+        this.hasPartner = true;
+        this.isInRoom = true;
+        this.updateUI();
+        break;
+        
+      case 'waiting_for_partner':
+        console.log('Ожидание партнера...');
+        this.isInRoom = true;
+        this.hasPartner = false;
+        this.updateUI();
         break;
         
       case 'offer':
@@ -327,10 +340,21 @@ class VoiceTranslationApp {
         break;
         
       case 'partner_disconnected':
+        console.log('Партнер отключился');
+        this.hasPartner = false;
+        this.isInRoom = false;
         this.isInCall = false;
         this.updateUI();
         break;
         
+      case 'warning':
+        console.warn('Предупреждение:', data.message);
+        this.log(`WARNING: ${data.message}`);
+        break;
+        
+      default:
+        console.log('Получено неизвестное сообщение:', data);
+        break;
     }
   }
   
@@ -421,7 +445,7 @@ class VoiceTranslationApp {
   updateUI() {
     // Обновляем состояние кнопок
     this.connectBtn.disabled = this.isConnected && this.isInCall;
-    this.startCallBtn.disabled = !this.isConnected || this.isInCall;
+    this.startCallBtn.disabled = !this.isConnected || this.isInCall || !this.hasPartner;
     this.stopCallBtn.disabled = !this.isInCall;
     
     // Обновляем стили индикаторов
@@ -436,6 +460,27 @@ class VoiceTranslationApp {
     if (connectionStatus) {
       connectionStatus.classList.remove('active', 'inactive');
       connectionStatus.classList.add(this.isConnected ? 'active' : 'inactive');
+    }
+    
+    // Обновляем статус комнаты
+    this.updateRoomStatus();
+  }
+  
+  updateRoomStatus() {
+    const roomStatusElement = document.getElementById('roomStatus');
+    if (roomStatusElement) {
+      if (this.isInRoom) {
+        if (this.hasPartner) {
+          roomStatusElement.textContent = 'В комнате с партнёром';
+          roomStatusElement.className = 'status-indicator connected';
+        } else {
+          roomStatusElement.textContent = 'Ожидание партнёра...';
+          roomStatusElement.className = 'status-indicator waiting';
+        }
+      } else {
+        roomStatusElement.textContent = 'Не в комнате';
+        roomStatusElement.className = 'status-indicator disconnected';
+      }
     }
   }
   
@@ -452,6 +497,11 @@ class VoiceTranslationApp {
       logElement.scrollTop = logElement.scrollHeight;
     }
     console.log(`[${new Date().toLocaleTimeString()}]`, message);
+    
+    // Также обновляем статус комнаты при необходимости
+    if (message.includes('partner_found') || message.includes('waiting_for_partner') || message.includes('partner_disconnected')) {
+      this.updateRoomStatus();
+    }
   }
   
   // Запуск измерения latency
