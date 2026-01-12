@@ -1,6 +1,6 @@
-// Генерация 4-значного числового ID сессии для пользователя
+// Генерация простого числового ID сессии для пользователя
 function generateSessionId() {
-  return Math.floor(1000 + Math.random() * 9000).toString();
+  return `user${Math.floor(1 + Math.random() * 10000)}`;
 }
 
 class VoiceTranslationApp {
@@ -64,6 +64,7 @@ class VoiceTranslationApp {
       this.ws = new WebSocket('wss://ai-call-backend-esj7.onrender.com');
       
       this.ws.onopen = () => {
+        console.log('WS OPEN');
         this.log('WS OPEN');
         this.isConnected = true;
         this.connectionStatusText.textContent = 'Connected';
@@ -82,11 +83,13 @@ class VoiceTranslationApp {
       };
       
       this.ws.onmessage = (event) => {
-        this.log('WS MESSAGE');
         // Проверяем тип полученных данных (текст или бинарные)
         if (typeof event.data === 'string') {
           // Это JSON строка сообщением
           const data = JSON.parse(event.data);
+          
+          console.log('WS MESSAGE', data);
+          this.log('WS MESSAGE');
           
           // Обработка pong для измерения latency
           if (data.type === 'pong') {
@@ -103,6 +106,7 @@ class VoiceTranslationApp {
       };
       
       this.ws.onclose = (event) => {
+        console.log('WS CLOSE', event.code, event.reason);
         this.log(`WS CLOSE: code=${event.code} reason=${event.reason}`);
         this.isConnected = false;
         this.isInCall = false;
