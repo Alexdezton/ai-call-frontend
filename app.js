@@ -5,7 +5,8 @@ function generateSessionId() {
 
 class VoiceTranslationApp {
   constructor() {
-    this.sessionId = generateSessionId();
+    this.userId = '';
+    this.roomId = '';
     this.localStream = null;
     this.remoteStream = null;
     this.peerConnection = null;
@@ -40,11 +41,10 @@ class VoiceTranslationApp {
     this.roomStatusText = document.getElementById('roomStatusText');
     this.latencyValue = document.getElementById('latencyValue');
     this.userIdDisplay = document.getElementById('userIdDisplay');
+    this.userInputId = document.getElementById('userInputId');
+    this.roomInputId = document.getElementById('roomInputId');
     this.localAudio = document.getElementById('localAudio');
     this.remoteAudio = document.getElementById('remoteAudio');
-    
-    // Устанавливаем сгенерированный ID сессии в UI
-    this.userIdDisplay.textContent = this.sessionId;
   }
   
   setupEventListeners() {
@@ -55,6 +55,20 @@ class VoiceTranslationApp {
   
   async connectToServer() {
     try {
+      // Получаем User ID и Room ID из полей ввода
+      this.userId = this.userInputId.value.trim();
+      this.roomId = this.roomInputId.value.trim();
+      
+      if (!this.userId) {
+        alert('Please enter your User ID');
+        return;
+      }
+      
+      if (!this.roomId) {
+        alert('Please enter Room ID');
+        return;
+      }
+      
       // Инициализируем WebRTC и получаем доступ к аудио
       const audioAccess = await this.initAudio();
       
@@ -63,8 +77,9 @@ class VoiceTranslationApp {
         return;
       }
       
-      // Подключаемся к WebSocket серверу
-      this.ws = new WebSocket('wss://ai-call-backend-esj7.onrender.com');
+      // Подключаемся к WebSocket серверу с User ID и Room ID в URL
+      const url = `wss://ai-call-backend-esj7.onrender.com?userId=${encodeURIComponent(this.userId)}&roomId=${encodeURIComponent(this.roomId)}`;
+      this.ws = new WebSocket(url);
       
       this.ws.onopen = () => {
         console.log('WS OPEN');
@@ -72,14 +87,6 @@ class VoiceTranslationApp {
         this.isConnected = true;
         this.connectionStatusText.textContent = 'Connected';
         this.updateUI();
-        
-        // Отправляем информацию о сессии на сервер
-        this.sendToServer({
-          type: 'session_info',
-          sessionId: this.sessionId,
-          myLanguage: document.getElementById('myLanguage').value,
-          partnerLanguage: document.getElementById('partnerLanguage').value
-        });
         
         // Запускаем измерение latency
         this.startLatencyMeasurement();
@@ -113,6 +120,8 @@ class VoiceTranslationApp {
         this.log(`WS CLOSE: code=${event.code} reason=${event.reason}`);
         this.isConnected = false;
         this.isInCall = false;
+        this.isInRoom = false;
+        this.hasPartner = false;
         this.connectionStatusText.textContent = 'Disconnected';
         this.updateUI();
         
@@ -309,14 +318,14 @@ class VoiceTranslationApp {
   handleMessage(data) {
     switch (data.type) {
       case 'partner_found':
-        console.log('Найден собеседник');
+        console.log(`Найден собеседник: ${data.partnerId} в комнате ${data.roomId}`);
         this.hasPartner = true;
         this.isInRoom = true;
         this.updateUI();
         break;
         
       case 'waiting_for_partner':
-        console.log('Ожидание партнера...');
+        console.log(`Ожидание партнера в комнате ${data.roomId}...`);
         this.isInRoom = true;
         this.hasPartner = false;
         this.updateUI();
@@ -340,7 +349,7 @@ class VoiceTranslationApp {
         break;
         
       case 'partner_disconnected':
-        console.log('Партнер отключился');
+        console.log(`Партнер ${data.partnerId} отключился от комнаты ${data.roomId}`);
         this.hasPartner = false;
         this.isInRoom = false;
         this.isInCall = false;
