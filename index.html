@@ -240,9 +240,9 @@
 
     <script src="app.js"></script>
     <script>
-        // Generate a random user ID on page load
+        // Generate a simple user ID on page load
         document.addEventListener('DOMContentLoaded', function() {
-            const userId = 'user_' + Math.random().toString(36).substr(2, 9);
+            const userId = `user${Math.floor(1 + Math.random() * 10)}`;
             document.getElementById('userIdDisplay').textContent = userId;
         });
 
