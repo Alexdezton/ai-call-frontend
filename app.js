@@ -1,4 +1,4 @@
-// Генерация простого ID сессии для пользователя (user1, user2 и т.д.)
+// Генерация случайного ID пользователя
 function generateSessionId() {
   return `user${Math.floor(1 + Math.random() * 10)}`;
 }
@@ -107,23 +107,40 @@ class VoiceTranslationApp {
         return;
       }
       
+      // Закрываем предыдущее соединение, если оно существует
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        this.ws.close();
+      } else if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
+        // Если соединение еще в процессе установления, также закрываем его
+        this.ws.close();
+      }
+      
       // Подключаемся к WebSocket серверу с User ID и Room ID в URL
-      const url = `wss://ai-call-backend-esj7.onrender.com?userId=${encodeURIComponent(this.userId)}&roomId=${encodeURIComponent(this.roomId)}`;
+      const url = `ws://localhost:3000?userId=${encodeURIComponent(this.userId)}&roomId=${encodeURIComponent(this.roomId)}`;
       this.ws = new WebSocket(url);
       
       this.ws.onopen = () => {
         console.log('WS OPEN');
         this.log('WS OPEN');
         this.isConnected = true;
+        this.isConnecting = false; // Сбрасываем флаг подключения
         this.connectionStatusText.textContent = 'Connected';
         this.updateUI();
+        
+        // Отправляем информацию о пользователе на сервер
+        this.sendToServer({
+          type: 'user_info',
+          userId: this.userId,
+          myLanguage: document.getElementById('myLanguage').value,
+          partnerLanguage: document.getElementById('partnerLanguage').value
+        });
         
         // Запускаем измерение latency
         this.startLatencyMeasurement();
       };
       
       this.ws.onmessage = (event) => {
-        // Check if the received data is text (JSON) or binary (audio/data)
+        // Проверяем тип полученных данных (текст или бинарные)
         if (typeof event.data === 'string') {
           try {
             const message = JSON.parse(event.data);
@@ -145,7 +162,7 @@ class VoiceTranslationApp {
             this.log(`ERROR: Invalid JSON received - ${error.message}`);
           }
         } else {
-          // This is binary data (audio or other) for processing
+          // Это бинарные аудио данные для воспроизведения
           console.log('Received binary data from WebSocket');
           this.playReceivedAudio(event.data);
         }
@@ -160,6 +177,7 @@ class VoiceTranslationApp {
         this.hasPartner = false;
         this.isConnecting = false; // Сбрасываем флаг подключения
         this.connectionStatusText.textContent = 'Disconnected';
+        this.roomStatusText.textContent = 'Not in room';
         this.updateUI();
         
         // Останавливаем измерение latency
@@ -224,6 +242,7 @@ class VoiceTranslationApp {
     } catch (error) {
       console.error('Ошибка при доступе к микрофону:', error);
       this.micStatusText.textContent = 'Error';
+      this.isConnecting = false; // Сбрасываем флаг подключения
       this.updateUI();
       return false;
     }
