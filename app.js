@@ -141,6 +141,7 @@ class VoiceTranslationApp {
       this.ws.onopen = () => {
         console.log('WS OPEN');
         this.log('WS OPEN');
+        console.log('WebSocket connection opened successfully');
         this.isConnected = true;
         this.isConnecting = false; // Сбрасываем флаг подключения
         this.connectionStatusText.textContent = 'Connected';
@@ -213,8 +214,11 @@ class VoiceTranslationApp {
       this.ws.onerror = (error) => {
         console.error('Ошибка WebSocket соединения:', error);
         console.error('WebSocket readyState:', this.ws ? this.ws.readyState : 'undefined');
+        console.error('WebSocket URL:', this.ws ? this.ws.url : 'undefined');
+        console.error('Event details:', error);
         this.log(`WebSocket error: ${error.message || error}`);
         this.log(`WebSocket readyState: ${this.ws ? this.ws.readyState : 'undefined'}`);
+        this.log(`WebSocket URL: ${this.ws ? this.ws.url : 'undefined'}`);
         this.isConnecting = false; // Сбрасываем флаг подключения
         this.connectionStatusText.textContent = 'Error';
         this.updateUI();
