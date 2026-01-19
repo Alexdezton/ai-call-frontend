@@ -167,6 +167,7 @@
             <div class="form-group">
                 <label for="roomInputId">Room ID</label>
                 <input type="text" id="roomInputId" placeholder="Enter room ID to join">
+                <div id="roomIdError" style="color: red; display: none; margin-top: 5px;">Please enter a room ID</div>
             </div>
             
             <div class="form-group">
@@ -198,7 +199,6 @@
             <div class="controls">
                 <button id="connectBtn" class="btn-connect">Connect to Room</button>
                 <button id="disconnectBtn" class="btn-connect">Disconnect</button>
-                <button type="button" id="testBtn" class="btn-connect" onclick="testFunction()">Test Button</button>
             </div>
             
             <div class="status-indicators">
@@ -271,11 +271,6 @@
         
         // Remove Connect Test functionality
         // The connectTestBtn was removed from HTML, so no need for its event listener
-        
-        // Test function to verify changes are applied
-        function testFunction() {
-          alert('Привет! Изменения применяются.');
-        }
     </script>
     
     <!-- Service Worker registration commented out to prevent interference with testing -->
