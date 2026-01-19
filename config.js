@@ -7,6 +7,10 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
   window.BACKEND_WS_URL = 'localhost:3000';
 } else {
   // Для продакшена ОБЯЗАТЕЛЬНО укажите реальный URL вашего Render сервера
+  // ВАЖНО: WebSocket соединения должны идти на BACKEND сервер (на Render), а не на FRONTEND (на Netlify)
+  // URL frontend: https://wondrous-jalebi-bde9b9.netlify.app/ (НЕ использовать для WebSocket!)
+  // URL backend: должен быть на Render (например: your-app-name.onrender.com)
+  //
   // Чтобы найти URL вашего Render сервера:
   // 1. Зайдите на https://dashboard.render.com/
   // 2. Найдите ваш веб-сервис для ai-call-backend
