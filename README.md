@@ -10,8 +10,17 @@
 - Статус соединения
 - Подключение к backend на Render через WSS
 
+## Настройка подключения к серверу
+
+Frontend подключается к WebSocket серверу через конфигурационный файл `config.js`.
+По умолчанию используется URL: `ai-call-backend-esj7.onrender.com` (реальный URL сервера).
+
+Если вам нужно изменить URL сервера:
+1. Отредактируйте файл `config.js`
+2. Замените `window.BACKEND_WS_URL` на ваш URL сервера
+
 ## Деплой на Netlify
 
 1. Перейдите на https://app.netlify.com/drop
 2. Загрузите все файлы репозитория
-3. Frontend автоматически подключается к backend на Render через WSS
+3. Frontend подключается к backend на Render через WSS
