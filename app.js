@@ -28,7 +28,7 @@ class VoiceTranslationApp {
     ];
     
     // Генерируем случайный User ID при создании экземпляра
-    this.userId = `user${Math.floor(1 + Math.random() * 1000)}`;
+    this.userId = generateSessionId();
     
     this.initializeElements();
     this.setupEventListeners();
@@ -66,9 +66,14 @@ class VoiceTranslationApp {
   }
   
   async connectToServer() {
-    // Проверяем, не выполняется ли уже подключение или соединение уже установлено
-    if (this.isConnecting || this.isConnected) {
-      return; // Предотвращаем повторное подключение
+    // Проверяем, не выполняется ли уже подключение
+    if (this.isConnecting) {
+      return; // Предотвращаем повторное подключение во время процесса подключения
+    }
+    
+    // Если уже есть соединение, закрываем его перед новым подключением
+    if (this.isConnected) {
+      this.disconnectFromServer();
     }
     
     this.isConnecting = true; // Устанавливаем флаг подключения ДО всех проверок
@@ -186,6 +191,7 @@ class VoiceTranslationApp {
       
       this.ws.onerror = (error) => {
         console.error('Ошибка WebSocket соединения:', error);
+        this.log(`WebSocket error: ${error.message || error}`);
         this.isConnecting = false; // Сбрасываем флаг подключения
         this.connectionStatusText.textContent = 'Error';
         this.updateUI();
@@ -241,6 +247,7 @@ class VoiceTranslationApp {
       return true;
     } catch (error) {
       console.error('Ошибка при доступе к микрофону:', error);
+      this.log(`Error accessing microphone: ${error.name || 'Unknown error'} - ${error.message || 'No message'}`);
       this.micStatusText.textContent = 'Error';
       this.isConnecting = false; // Сбрасываем флаг подключения
       this.updateUI();
@@ -343,7 +350,7 @@ class VoiceTranslationApp {
       this.sendToServer({
         type: 'offer',
         sdp: offer.sdp,
-        sessionId: this.sessionId
+        userId: this.userId
       });
       
       this.isInCall = true;
@@ -354,6 +361,7 @@ class VoiceTranslationApp {
       this.updateUI();
     } catch (error) {
       console.error('Error starting call:', error);
+      alert('Error starting call: ' + error.message);
     }
   }
   
@@ -449,6 +457,12 @@ class VoiceTranslationApp {
   // Воспроизведение полученного аудио
   async playReceivedAudio(audioData) {
     try {
+      // Проверяем, что remoteAudio элемент существует
+      if (!this.remoteAudio) {
+        console.warn('Remote audio element not found');
+        return;
+      }
+      
       // Определяем тип данных и создаем соответствующий blob
       let audioBlob;
       
@@ -465,24 +479,43 @@ class VoiceTranslationApp {
       
       const audioUrl = URL.createObjectURL(audioBlob);
       
-      if (this.remoteAudio) {
-        this.remoteAudio.src = audioUrl;
-        // Автоматически начинаем воспроизведение
-        const playPromise = this.remoteAudio.play();
-        if (playPromise !== undefined) {
-          playPromise.catch(error => {
-            console.error('Ошибка при воспроизведении аудио:', error);
-            // Пытаемся снова после взаимодействия пользователя
-            this.remoteAudio.addEventListener('load', () => {
-              this.remoteAudio.play().catch(e => {
-                console.error('Повторная ошибка при воспроизведении аудио:', e);
-              });
+      // Очищаем предыдущий источник перед установкой нового
+      if (this.remoteAudio.src) {
+        URL.revokeObjectURL(this.remoteAudio.src);
+      }
+      
+      this.remoteAudio.src = audioUrl;
+      
+      // Ждем загрузки метаданных перед воспроизведением
+      this.remoteAudio.load();
+      
+      // Автоматически начинаем воспроизведение
+      const playPromise = this.remoteAudio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(error => {
+          console.error('Ошибка при воспроизведении аудио:', error);
+          this.log(`Error playing audio: ${error.message || error}`);
+          
+          // Для решения проблемы автовоспроизведения в современных браузерах
+          // ждем взаимодействия пользователя, а затем пробуем снова
+          const handleUserInteraction = () => {
+            this.remoteAudio.play().catch(e => {
+              console.error('Повторная ошибка при воспроизведении аудио:', e);
+              this.log(`Retry error playing audio: ${e.message || e}`);
             });
-          });
-        }
+            
+            // Удаляем обработчики, чтобы не вызывать повторно
+            document.removeEventListener('click', handleUserInteraction);
+            document.removeEventListener('touchstart', handleUserInteraction);
+          };
+          
+          document.addEventListener('click', handleUserInteraction);
+          document.addEventListener('touchstart', handleUserInteraction);
+        });
       }
     } catch (error) {
       console.error('Ошибка при воспроизведении полученного аудио:', error);
+      this.log(`Error in playReceivedAudio: ${error.message || error}`);
     }
   }
   
@@ -492,6 +525,12 @@ class VoiceTranslationApp {
         this.createPeerConnection();
       }
       
+      // Проверяем, что описание еще не установлено
+      if (this.peerConnection.signalingState === 'have-remote-offer') {
+        console.warn('Offer already received, ignoring new offer');
+        return;
+      }
+      
       await this.peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
       
       const answer = await this.peerConnection.createAnswer();
@@ -499,34 +538,72 @@ class VoiceTranslationApp {
       
       this.sendToServer({
         type: 'answer',
-        answer: answer
+        sdp: answer.sdp,
+        userId: this.userId
       });
     } catch (error) {
       console.error('Ошибка при обработке предложения:', error);
+      this.log(`Error handling offer: ${error.message || error}`);
     }
   }
   
   async handleAnswer(answer) {
     try {
-      await this.peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+      // Проверяем, что соединение существует и имеет правильное состояние
+      if (!this.peerConnection) {
+        console.error('Peer connection not initialized');
+        return;
+      }
+      
+      // Проверяем, что описание еще не установлено
+      if (this.peerConnection.signalingState === 'stable') {
+        await this.peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+      } else {
+        console.warn('Peer connection not in stable state, ignoring answer');
+      }
     } catch (error) {
       console.error('Ошибка при обработке ответа:', error);
+      this.log(`Error handling answer: ${error.message || error}`);
     }
   }
   
   async handleIceCandidate(candidate) {
     try {
+      if (!this.peerConnection) {
+        console.error('Peer connection not initialized');
+        return;
+      }
+      
+      // Проверяем, что кандидат действительно является объектом ICE кандидата
+      if (!candidate || typeof candidate !== 'object') {
+        console.error('Invalid ICE candidate format:', candidate);
+        return;
+      }
+      
       await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
     } catch (error) {
       console.error('Ошибка при обработке ICE кандидата:', error);
+      this.log(`Error handling ICE candidate: ${error.message || error}`);
     }
   }
   
   sendToServer(message) {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(message));
+      try {
+        // Добавляем проверку на валидность сообщения перед отправкой
+        if (!message || typeof message !== 'object') {
+          console.error('Invalid message format:', message);
+          return;
+        }
+        
+        this.ws.send(JSON.stringify(message));
+      } catch (error) {
+        console.error('Ошибка при отправке сообщения:', error);
+        this.log(`Error sending message: ${error.message || error}`);
+      }
     } else {
       console.warn('WebSocket соединение не установлено');
+      this.log('WebSocket connection not established');
     }
   }
   
