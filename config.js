@@ -7,5 +7,5 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
 } else {
   // Для продакшена укажите URL вашего Render сервера
   // Пример: 'your-app-name.onrender.com'
-  window.BACKEND_WS_URL = 'YOUR_RENDER_BACKEND_URL.onrender.com'; // ЗАМЕНИТЕ НА ВАШ РЕАЛЬНЫЙ URL
+  window.BACKEND_WS_URL = 'ai-call-backend-xxx.onrender.com'; // ЗАМЕНИТЕ НА ВАШ РЕАЛЬНЫЙ URL
 }
