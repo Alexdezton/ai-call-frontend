@@ -125,17 +125,12 @@ class VoiceTranslationApp {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       let host;
       
-      // Для локальной разработки используем localhost:3000
-      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        host = 'localhost:3000';
-      } else {
-        // Для продакшена используем тот же протокол и хост, что и сайт, но без порта для WebSocket
-        // Render направляет WebSocket трафик на тот же URL, что и HTTP
-        host = window.location.host;
-      }
+      // Используем URL из конфигурационного файла
+      host = window.BACKEND_WS_URL || 'localhost:3000';
       
       const url = `${protocol}//${host}?userId=${encodeURIComponent(this.userId)}&roomId=${encodeURIComponent(this.roomId)}`;
       console.log('Attempting to connect to WebSocket:', url); // Добавляем лог для отладки
+      console.log('Backend WebSocket URL configured as:', host); // Обновляем лог
       this.ws = new WebSocket(url);
       
       this.ws.onopen = () => {
