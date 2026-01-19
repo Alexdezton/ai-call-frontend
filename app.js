@@ -121,7 +121,12 @@ class VoiceTranslationApp {
       }
       
       // Подключаемся к WebSocket серверу с User ID и Room ID в URL
-      const url = `ws://localhost:3000?userId=${encodeURIComponent(this.userId)}&roomId=${encodeURIComponent(this.roomId)}`;
+      // Используем динамический URL в зависимости от среды (локальная или удаленная)
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? `${window.location.hostname}:3000`
+        : window.location.host; // для продакшена используем тот же хост, что и сайт
+      const url = `${protocol}//${host}?userId=${encodeURIComponent(this.userId)}&roomId=${encodeURIComponent(this.roomId)}`;
       this.ws = new WebSocket(url);
       
       this.ws.onopen = () => {
@@ -175,7 +180,14 @@ class VoiceTranslationApp {
       
       this.ws.onclose = (event) => {
         console.log('WS CLOSE', event.code, event.reason);
+        console.log('Close event details:', {
+          wasClean: event.wasClean,
+          code: event.code,
+          reason: event.reason,
+          target: event.target ? 'WebSocket object' : 'unknown'
+        });
         this.log(`WS CLOSE: code=${event.code} reason=${event.reason}`);
+        this.log(`Close event wasClean: ${event.wasClean}`);
         this.isConnected = false;
         this.isInCall = false;
         this.isInRoom = false;
@@ -191,7 +203,9 @@ class VoiceTranslationApp {
       
       this.ws.onerror = (error) => {
         console.error('Ошибка WebSocket соединения:', error);
+        console.error('WebSocket readyState:', this.ws ? this.ws.readyState : 'undefined');
         this.log(`WebSocket error: ${error.message || error}`);
+        this.log(`WebSocket readyState: ${this.ws ? this.ws.readyState : 'undefined'}`);
         this.isConnecting = false; // Сбрасываем флаг подключения
         this.connectionStatusText.textContent = 'Error';
         this.updateUI();
